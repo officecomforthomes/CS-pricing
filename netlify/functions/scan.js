@@ -1,16 +1,25 @@
 exports.handler = async function (event) {
-  const corsHeaders = {
+  const cors = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS'
+    'Access-Control-Allow-Methods': 'POST, OPTIONS, GET'
   };
 
+  // GET request = health check so you can test the function is live
+  if (event.httpMethod === 'GET') {
+    return {
+      statusCode: 200,
+      headers: { ...cors, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'ok', message: 'Scan function is running' })
+    };
+  }
+
   if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers: corsHeaders, body: '' };
+    return { statusCode: 200, headers: cors, body: '' };
   }
 
   if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, headers: corsHeaders, body: 'Method Not Allowed' };
+    return { statusCode: 405, headers: cors, body: 'Method Not Allowed' };
   }
 
   let parsed;
@@ -19,7 +28,7 @@ exports.handler = async function (event) {
   } catch {
     return {
       statusCode: 400,
-      headers: corsHeaders,
+      headers: { ...cors, 'Content-Type': 'application/json' },
       body: JSON.stringify({ error: { message: 'Invalid request body' } })
     };
   }
@@ -29,7 +38,7 @@ exports.handler = async function (event) {
   if (!apiKey) {
     return {
       statusCode: 400,
-      headers: corsHeaders,
+      headers: { ...cors, 'Content-Type': 'application/json' },
       body: JSON.stringify({ error: { message: 'No API key provided' } })
     };
   }
@@ -49,13 +58,13 @@ exports.handler = async function (event) {
 
     return {
       statusCode: response.status,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...cors, 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     };
   } catch (err) {
     return {
       statusCode: 500,
-      headers: corsHeaders,
+      headers: { ...cors, 'Content-Type': 'application/json' },
       body: JSON.stringify({ error: { message: 'Proxy error: ' + err.message } })
     };
   }
