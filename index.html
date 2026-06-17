@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Comfort Surfaces — Floor Price Scanner</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #F7F6F3;
+    --surface: #FFFFFF;
+    --border: #E2E0DB;
+    --text: #1A1A1A;
+    --muted: #888580;
+    --accent: #2C5F8A;
+    --accent-light: #EBF2F9;
+    --green-ok: #166534;
+    --green-ok-bg: #F0FDF4;
+    --green-ok-border: #BBF7D0;
+    --danger: #DC2626;
+    --danger-light: #FEF2F2;
+    --danger-border: #FECACA;
+    --warn-bg: #FFFBEB;
+    --warn-border: #FDE68A;
+    --warn-text: #92400E;
+    --warn-sub: #B45309;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ─────────────────────────────────── */
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .header-logo {
+    width: 36px; height: 36px;
+    background: var(--accent);
+    border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 18px; flex-shrink: 0;
+  }
+  .header-title { font-size: 17px; font-weight: 600; }
+  .header-sub   { font-size: 12px; color: var(--muted); }
+  .header-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
+  .markup-select {
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    outline: none;
+    cursor: pointer;
+  }
+  .icon-btn {
+    width: 34px; height: 34px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px;
+    transition: background 0.15s;
+  }
+  .icon-btn:hover { background: var(--border); }
+
+  /* ── SETUP SCREEN ────────────────────────────── */
+  #setupScreen { display: none; }
+
+  .setup-wrap {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 2rem 1.25rem 3rem;
+  }
+  .setup-hero {
+    text-align: center;
+    padding: 1.5rem 0 2rem;
+  }
+  .setup-hero-icon {
+    width: 68px; height: 68px;
+    background: var(--accent);
+    border-radius: 18px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 34px;
+    margin-bottom: 1rem;
+  }
+  .setup-hero-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .setup-hero-sub { font-size: 15px; color: var(--muted); line-height: 1.6; }
+
+  .setup-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+  }
+  .setup-card-title {
+    font-size: 14px; font-weight: 600;
+    margin-bottom: 4px;
+    display: flex; align-items: center; gap: 9px;
+  }
+  .step-badge {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--accent); color: white;
+    font-size: 12px; font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .step-badge.done { background: #22C55E; }
+  .setup-card-sub {
+    font-size: 13px; color: var(--muted);
+    margin-bottom: 12px; margin-left: 31px;
+    line-height: 1.5;
+  }
+
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius-sm);
+    padding: 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    position: relative;
+    transition: border-color 0.2s, background 0.2s;
+    margin-left: 31px;
+  }
+  .upload-zone:hover, .upload-zone.ready { border-color: var(--accent); background: var(--accent-light); }
+  .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .upload-icon  { font-size: 28px; margin-bottom: 6px; }
+  .upload-label { font-size: 14px; font-weight: 500; }
+  .upload-sub   { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .upload-ok    { font-size: 14px; font-weight: 500; color: #16A34A; display: flex; align-items: center; justify-content: center; gap: 6px; }
+
+  /* Brand list (setup + settings) */
+  .brand-list { margin-left: 31px; margin-top: 10px; }
+  .brand-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .brand-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: var(--green-ok-bg); border: 1px solid var(--green-ok-border);
+    color: var(--green-ok); border-radius: 20px;
+    padding: 4px 10px; font-size: 13px; font-weight: 500;
+  }
+  .add-more-label {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 14px;
+    border: 1.5px dashed var(--accent);
+    border-radius: var(--radius-sm);
+    color: var(--accent); font-size: 13px; font-weight: 500;
+    cursor: pointer; position: relative;
+    transition: background 0.15s;
+  }
+  .add-more-label:hover { background: var(--accent-light); }
+  .add-more-label input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+
+  .key-wrap { margin-left: 31px; }
+  .key-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-family: monospace;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .key-input:focus { border-color: var(--accent); }
+  .key-hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+  .go-btn {
+    width: 100%;
+    padding: 15px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 16px; font-weight: 600;
+    cursor: pointer;
+    margin-top: 0.25rem;
+    transition: opacity 0.2s;
+  }
+  .go-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  /* ── MAIN SCANNER SCREEN ─────────────────────── */
+  #mainScreen { display: none; }
+
+  .main {
+    padding: 1.25rem;
+    max-width: 600px;
+    margin: 0 auto;
+    padding-bottom: 3rem;
+  }
+
+  .data-bar {
+    background: var(--green-ok-bg);
+    border: 1px solid var(--green-ok-border);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    font-size: 13px;
+    color: var(--green-ok);
+    margin-bottom: 1rem;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .data-bar-count { margin-left: auto; color: var(--muted); font-size: 12px; }
+
+  .camera-zone {
+    background: var(--surface);
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 2.25rem 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    position: relative;
+    transition: border-color 0.2s, background 0.2s;
+    margin-bottom: 1rem;
+  }
+  .camera-zone:hover { border-color: var(--accent); background: var(--accent-light); }
+  .camera-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .camera-icon  { font-size: 42px; margin-bottom: 0.75rem; }
+  .camera-label { font-size: 15px; font-weight: 500; margin-bottom: 4px; }
+  .camera-sub   { font-size: 13px; color: var(--muted); }
+
+  .preview-wrap { position: relative; margin-bottom: 1rem; display: none; }
+  .preview-img  { width: 100%; border-radius: var(--radius); border: 1px solid var(--border); display: block; max-height: 320px; object-fit: cover; }
+  .preview-clear {
+    position: absolute; top: 8px; right: 8px;
+    background: rgba(0,0,0,0.55); color: white;
+    border: none; border-radius: 20px; padding: 5px 13px;
+    font-size: 13px; cursor: pointer;
+  }
+
+  .scan-btn {
+    width: 100%; padding: 14px;
+    background: var(--accent); color: white;
+    border: none; border-radius: var(--radius);
+    font-size: 16px; font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 1.25rem;
+    display: none; align-items: center; justify-content: center; gap: 8px;
+    transition: opacity 0.2s;
+  }
+  .scan-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+  .scan-btn.show { display: flex; }
+
+  .status-bar {
+    background: var(--accent-light);
+    border: 1px solid #C5DCEF;
+    border-radius: var(--radius-sm);
+    padding: 12px 16px;
+    font-size: 14px; color: var(--accent);
+    margin-bottom: 1rem;
+    display: none; align-items: center; gap: 8px;
+  }
+  .status-bar.show { display: flex; }
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid #C5DCEF;
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .error-box {
+    background: var(--danger-light); border: 1px solid var(--danger-border);
+    border-radius: var(--radius-sm); padding: 12px 16px;
+    font-size: 14px; color: var(--danger);
+    margin-bottom: 1rem; display: none;
+    line-height: 1.5;
+  }
+  .error-box.show { display: block; }
+
+  /* Results */
+  .results { display: none; }
+  .results.show { display: block; }
+
+  .results-hdr {
+    font-size: 13px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.06em;
+    margin-bottom: 0.75rem;
+  }
+
+  .brand-divider {
+    font-size: 15px; font-weight: 700;
+    margin: 1.25rem 0 0.6rem;
+    padding-bottom: 7px;
+    border-bottom: 2px solid var(--border);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .brand-divider:first-child { margin-top: 0; }
+  .brand-chip {
+    font-size: 10px; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.09em;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 4px; padding: 2px 7px;
+  }
+
+  .series-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 0.875rem;
+    overflow: hidden;
+  }
+  .card-head {
+    padding: 13px 16px 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;
+  }
+  .card-series { font-size: 16px; font-weight: 600; text-transform: capitalize; }
+  .card-style  { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .tier-badge {
+    display: flex; align-items: center; gap: 5px;
+    padding: 4px 10px; border-radius: 20px;
+    font-size: 12px; font-weight: 600; flex-shrink: 0;
+    border: 1.5px solid transparent;
+  }
+  .tier-dot { width: 10px; height: 10px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.15); }
+
+  .card-colors {
+    padding: 8px 16px 11px;
+    font-size: 13px; color: var(--muted); line-height: 1.55;
+  }
+
+  .price-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    border-top: 1px solid var(--border);
+  }
+  .price-cell {
+    padding: 11px 8px;
+    text-align: center;
+    border-right: 1px solid var(--border);
+  }
+  .price-cell:last-child { border-right: none; }
+  .pc-label { font-size: 10px; color: var(--muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .pc-value { font-size: 17px; font-weight: 700; color: var(--text); }
+  .pc-sub   { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .price-cell.hi { background: var(--accent-light); }
+  .price-cell.hi .pc-value { color: var(--accent); }
+
+  .size-row {
+    padding: 7px 16px;
+    border-top: 1px solid var(--border);
+    font-size: 13px; color: var(--muted);
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .not-found-card {
+    background: var(--warn-bg); border: 1px solid var(--warn-border);
+    border-radius: var(--radius); padding: 13px 16px;
+    margin-bottom: 0.875rem;
+  }
+  .not-found-title { font-size: 14px; font-weight: 600; color: var(--warn-text); margin-bottom: 3px; }
+  .not-found-sub   { font-size: 13px; color: var(--warn-sub); }
+
+  /* Legend */
+  .legend {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px 16px; margin-top: 1.75rem;
+  }
+  .legend-title { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 10px; }
+  .legend-grid  { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+  .legend-item  { display: flex; align-items: center; gap: 7px; font-size: 13px; }
+  .legend-dot   { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid rgba(0,0,0,0.15); flex-shrink: 0; }
+
+  /* ── SETTINGS MODAL ──────────────────────────── */
+  .modal-bg {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 50;
+    display: none; align-items: flex-end; justify-content: center;
+  }
+  .modal-bg.show { display: flex; }
+  .modal-sheet {
+    background: var(--surface);
+    border-radius: var(--radius) var(--radius) 0 0;
+    padding: 1.5rem 1.25rem 2rem;
+    width: 100%; max-width: 600px;
+    max-height: 85vh; overflow-y: auto;
+  }
+  .modal-title { font-size: 17px; font-weight: 700; margin-bottom: 1rem; }
+  .modal-row {
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  }
+  .modal-row:last-of-type { border-bottom: none; }
+  .modal-btn-group { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; flex-shrink: 0; }
+  .modal-row-label { font-size: 14px; font-weight: 500; }
+  .modal-row-sub   { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .modal-action-btn {
+    padding: 8px 15px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    font-size: 13px; font-weight: 500;
+    cursor: pointer; color: var(--text);
+    white-space: nowrap;
+    position: relative;
+  }
+  .modal-action-btn.danger { border-color: var(--danger); color: var(--danger); }
+  .modal-action-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .modal-close-btn {
+    width: 100%; padding: 13px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 15px; font-weight: 500;
+    cursor: pointer; color: var(--text);
+    margin-top: 1rem;
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════
+     SETUP SCREEN
+════════════════════════════════════════════════ -->
+<div id="setupScreen">
+  <div class="header">
+    <div class="header-logo">🏠</div>
+    <div>
+      <div class="header-title">Comfort Surfaces</div>
+      <div class="header-sub">Floor Price Scanner — Setup</div>
+    </div>
+  </div>
+
+  <div class="setup-wrap">
+    <div class="setup-hero">
+      <div class="setup-hero-icon">📋</div>
+      <div class="setup-hero-title">One-time Setup</div>
+      <div class="setup-hero-sub">Upload your pricing spreadsheet and enter your API key. This is saved on the tablet and only needs to be done once.</div>
+    </div>
+
+    <!-- Step 1: Excel -->
+    <div class="setup-card">
+      <div class="setup-card-title">
+        <span class="setup-step-badge step-badge" id="step1Badge">1</span>
+        Upload Manufacturer Pricing Files
+      </div>
+      <div class="setup-card-sub">
+        One Excel file per manufacturer — each must have sheets named <strong>CH Cost</strong>, <strong>+20</strong>, <strong>+30</strong>, <strong>+40</strong>, <strong>+50</strong><br>
+        with columns: Brand, Series, Style, Color, Size, Price
+      </div>
+      <div class="upload-zone" id="setupUploadZone">
+        <input type="file" accept=".xlsx,.xls" multiple id="setupExcelInput" onchange="handleSetupExcel(event)">
+        <div id="setupUploadContent">
+          <div class="upload-icon">📊</div>
+          <div class="upload-label">Tap to upload Excel files</div>
+          <div class="upload-sub">Select one or multiple .xlsx files at once</div>
+        </div>
+      </div>
+      <!-- Brand list shown after upload -->
+      <div class="brand-list" id="setupBrandList" style="display:none">
+        <div class="brand-pills" id="setupBrandPills"></div>
+        <label class="add-more-label">
+          <input type="file" accept=".xlsx,.xls" multiple onchange="handleSetupExcelMore(event)">
+          + Add more manufacturer files
+        </label>
+      </div>
+    </div>
+
+    <!-- Step 2: API Key -->
+    <div class="setup-card">
+      <div class="setup-card-title">
+        <span class="setup-step-badge step-badge" id="step2Badge">2</span>
+        Claude API Key
+      </div>
+      <div class="setup-card-sub">Used to read photos and identify flooring products. Stored on this device only — never sent anywhere else.</div>
+      <div class="key-wrap">
+        <input type="password" class="key-input" id="setupApiKey" placeholder="sk-ant-api03-…" oninput="checkSetupReady()">
+        <div class="key-hint">Get your key at console.anthropic.com</div>
+      </div>
+    </div>
+
+    <button class="go-btn" id="setupGoBtn" disabled onclick="completeSetup()">
+      Start Scanning →
+    </button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     MAIN SCANNER SCREEN
+════════════════════════════════════════════════ -->
+<div id="mainScreen">
+  <div class="header">
+    <div class="header-logo">🏠</div>
+    <div>
+      <div class="header-title">Comfort Surfaces</div>
+      <div class="header-sub">Floor Price Scanner</div>
+    </div>
+    <div class="header-actions">
+      <select class="markup-select" id="markupSel">
+        <option value="+20">+20% retail</option>
+        <option value="+30">+30%</option>
+        <option value="+40">+40%</option>
+        <option value="+50">+50%</option>
+        <option value="CH Cost">Cost only</option>
+      </select>
+      <button class="icon-btn" onclick="openSettings()" title="Settings">⚙️</button>
+    </div>
+  </div>
+
+  <div class="main">
+
+    <div class="data-bar">
+      ✅ <strong id="dataBarText">Pricing loaded</strong>
+      <span class="data-bar-count" id="dataBarCount"></span>
+    </div>
+    <div id="keyBar" style="display:none;background:#FEF9C3;border:1px solid #FDE68A;border-radius:var(--radius-sm);padding:10px 14px;font-size:13px;color:#92400E;margin-bottom:1rem;display:flex;align-items:center;gap:8px">
+      ⚠️ <strong>No API key saved.</strong> Tap ⚙️ Settings → Update key before scanning.
+    </div>
+
+    <div class="camera-zone" id="cameraZone">
+      <input type="file" accept="image/*" capture="environment" id="photoInput" onchange="handlePhoto(event)">
+      <div class="camera-icon">📷</div>
+      <div class="camera-label">Take a photo of the display board</div>
+      <div class="camera-sub">Or tap to choose from your camera roll</div>
+    </div>
+
+    <div class="preview-wrap" id="previewWrap">
+      <img id="previewImg" class="preview-img" src="" alt="Board photo">
+      <button class="preview-clear" onclick="clearPhoto()">✕ Clear</button>
+    </div>
+
+    <button class="scan-btn" id="scanBtn" onclick="doScan()">
+      <span>🔍</span>
+      <span id="scanBtnText">Look up pricing</span>
+    </button>
+
+    <div class="status-bar" id="statusBar">
+      <div class="spinner"></div>
+      <span id="statusText">Reading the display board…</span>
+    </div>
+
+    <div class="error-box" id="errorBox"></div>
+
+    <div class="results" id="results">
+      <div class="results-hdr" id="resultsHdr"></div>
+      <div id="resultsBody"></div>
+    </div>
+
+    <div class="legend">
+      <div class="legend-title">Sticker color guide</div>
+      <div class="legend-grid">
+        <div class="legend-item"><span class="legend-dot" style="background:#E53935"></span> Red — $0–$3.00</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#F9A825"></span> Yellow — $3.01–$5.00</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#1E88E5"></span> Blue — $5.01–$7.00</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#43A047"></span> Green — $7.01–$9.00</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#212121"></span> Black — $9.01–$12.00</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#FB8C00"></span> Orange — $12.01+</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     SETTINGS MODAL
+════════════════════════════════════════════════ -->
+<div class="modal-bg" id="settingsModal" onclick="modalBgClick(event)">
+  <div class="modal-sheet">
+    <div class="modal-title">Settings</div>
+
+    <div class="modal-row" style="flex-direction:column; align-items:stretch; gap:10px">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px">
+        <div>
+          <div class="modal-row-label">Manufacturer Pricing Files</div>
+          <div class="modal-row-sub" id="settingsDataSub">Loading…</div>
+        </div>
+        <div class="modal-btn-group">
+          <label class="modal-action-btn" style="text-align:center">
+            <input type="file" accept=".xlsx,.xls" multiple onchange="handleSettingsExcelAdd(event)">
+            + Add brands
+          </label>
+          <label class="modal-action-btn" style="text-align:center">
+            <input type="file" accept=".xlsx,.xls" multiple onchange="handleSettingsExcelReplace(event)">
+            Replace all
+          </label>
+        </div>
+      </div>
+      <!-- loaded brands -->
+      <div class="brand-pills" id="settingsBrandPills" style="margin:0"></div>
+    </div>
+
+    <div class="modal-row">
+      <div>
+        <div class="modal-row-label">Claude API Key</div>
+        <div class="modal-row-sub">Used for photo-based product recognition</div>
+      </div>
+      <button class="modal-action-btn" onclick="updateApiKey()">Update key</button>
+    </div>
+
+    <div class="modal-row">
+      <div>
+        <div class="modal-row-label">Clear All Data</div>
+        <div class="modal-row-sub">Removes spreadsheet and key from this device</div>
+      </div>
+      <button class="modal-action-btn danger" onclick="clearAllData()">Clear</button>
+    </div>
+
+    <button class="modal-close-btn" onclick="closeSettings()">Done</button>
+  </div>
+</div>
+
+<script>
+// ── PRICE TIERS ───────────────────────────────────────────────────────────────
+const TIERS = [
+  { id:'red',    label:'Red',    color:'#E53935', textColor:'#fff',     min:0,     max:3,        range:'$0–$3.00'      },
+  { id:'yellow', label:'Yellow', color:'#F9A825', textColor:'#7a5a00',  min:3.01,  max:5,        range:'$3.01–$5.00'   },
+  { id:'blue',   label:'Blue',   color:'#1E88E5', textColor:'#fff',     min:5.01,  max:7,        range:'$5.01–$7.00'   },
+  { id:'green',  label:'Green',  color:'#43A047', textColor:'#fff',     min:7.01,  max:9,        range:'$7.01–$9.00'   },
+  { id:'black',  label:'Black',  color:'#212121', textColor:'#212121',  min:9.01,  max:12,       range:'$9.01–$12.00'  },
+  { id:'orange', label:'Orange', color:'#FB8C00', textColor:'#fff',     min:12.01, max:Infinity, range:'$12.01+'       }
+];
+
+const SHEET_NAMES = ['CH Cost', '+20', '+30', '+40', '+50'];
+
+function getTier(price) {
+  return TIERS.find(t => price >= t.min && price <= t.max) || TIERS[TIERS.length - 1];
+}
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let appData        = null;   // { "CH Cost": [{Brand,Series,Style,Color,Size,Price},...], ... }
+let apiKey         = '';
+let pendingExcel   = null;   // accumulated data during setup flow
+let photoBase64    = null;
+let photoMimeType  = 'image/jpeg';
+
+// Merge two data objects (same sheet structure), concatenating rows
+function mergeData(existing, incoming) {
+  const merged = {};
+  SHEET_NAMES.forEach(name => {
+    merged[name] = [...(existing?.[name] || []), ...(incoming?.[name] || [])];
+  });
+  return merged;
+}
+
+// Parse multiple files and merge them all together
+function parseMultipleFiles(files, onDone) {
+  const list = Array.from(files);
+  let merged = null;
+  let i = 0;
+  const errors = [];
+
+  function next() {
+    if (i >= list.length) {
+      if (!merged) return onDone(new Error(errors.join('; ')));
+      return onDone(null, merged);
+    }
+    const file = list[i++];
+    parseExcel(file, (err, data) => {
+      if (err) {
+        errors.push(`${file.name}: ${err.message}`);
+      } else {
+        merged = merged ? mergeData(merged, data) : data;
+      }
+      next();
+    });
+  }
+  next();
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+function init() {
+  const raw = localStorage.getItem('cs_data');
+  const key = localStorage.getItem('cs_key');
+  if (raw && key) {
+    try {
+      appData = JSON.parse(raw);
+      apiKey  = key;
+      show('mainScreen');
+      refreshDataBar();
+      return;
+    } catch(e) { /* fall through to setup */ }
+  }
+  show('setupScreen');
+}
+
+function show(id) {
+  ['setupScreen','mainScreen'].forEach(s => {
+    document.getElementById(s).style.display = s === id ? 'block' : 'none';
+  });
+}
+
+function getBrands(data) {
+  return [...new Set((data?.['CH Cost'] || []).map(r => r.Brand).filter(Boolean))];
+}
+
+function refreshDataBar() {
+  if (!appData) return;
+  const base   = appData['CH Cost'] || [];
+  const brands = getBrands(appData);
+  document.getElementById('dataBarText').textContent =
+    `${brands.length} brand${brands.length !== 1 ? 's' : ''} loaded`;
+  document.getElementById('dataBarCount').textContent =
+    `${base.length} products`;
+  document.getElementById('keyBar').style.display = (!apiKey || apiKey.length < 20) ? 'flex' : 'none';
+}
+
+// ── EXCEL PARSING (SheetJS) ───────────────────────────────────────────────────
+function parseExcel(file, onDone) {
+  const reader = new FileReader();
+  reader.onerror = () => onDone(new Error('Could not read the file.'));
+  reader.onload  = e => {
+    try {
+      const wb     = XLSX.read(e.target.result, { type: 'binary' });
+      const sheets = {};
+
+      SHEET_NAMES.forEach(name => {
+        const ws = wb.Sheets[name];
+        if (!ws) return;
+
+        // sheet_to_json uses first row as headers automatically
+        const raw = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+        // Normalize column names (case-insensitive)
+        const rows = raw.map(row => {
+          const out = {};
+          Object.keys(row).forEach(k => {
+            const lk = k.toLowerCase().trim();
+            if      (lk === 'brand')  out.Brand  = String(row[k]).trim();
+            else if (lk === 'series') out.Series = String(row[k]).trim();
+            else if (lk === 'style')  out.Style  = String(row[k]).trim();
+            else if (lk === 'color')  out.Color  = String(row[k]).trim();
+            else if (lk === 'size')   out.Size   = String(row[k]).trim();
+            else if (lk === 'price')  out.Price  = parseFloat(row[k]) || 0;
+          });
+          return out;
+        }).filter(r => r.Brand && r.Series && r.Price > 0);
+
+        sheets[name] = rows;
+      });
+
+      const missing = SHEET_NAMES.filter(n => !sheets[n]);
+      if (missing.length === SHEET_NAMES.length) {
+        return onDone(new Error(`No matching sheets found. Expected: ${SHEET_NAMES.join(', ')}`));
+      }
+
+      onDone(null, sheets);
+    } catch(err) {
+      onDone(new Error('Failed to parse Excel: ' + err.message));
+    }
+  };
+  reader.readAsBinaryString(file);
+}
+
+// ── SETUP SCREEN ──────────────────────────────────────────────────────────────
+function handleSetupExcel(e) {
+  if (!e.target.files.length) return;
+  const content = document.getElementById('setupUploadContent');
+  content.innerHTML = '<div class="upload-icon">⏳</div><div class="upload-label">Reading files…</div>';
+
+  parseMultipleFiles(e.target.files, (err, data) => {
+    if (err) {
+      content.innerHTML = `<div class="upload-icon">❌</div><div class="upload-label" style="color:var(--danger)">${err.message}</div>`;
+      return;
+    }
+    pendingExcel = data;
+    refreshSetupBrandList();
+    checkSetupReady();
+  });
+}
+
+function handleSetupExcelMore(e) {
+  if (!e.target.files.length) return;
+  parseMultipleFiles(e.target.files, (err, data) => {
+    if (err) { alert('Error reading file(s): ' + err.message); return; }
+    pendingExcel = pendingExcel ? mergeData(pendingExcel, data) : data;
+    refreshSetupBrandList();
+    checkSetupReady();
+  });
+}
+
+function refreshSetupBrandList() {
+  const brands  = getBrands(pendingExcel);
+  const base    = pendingExcel?.['CH Cost'] || [];
+  const zone    = document.getElementById('setupUploadZone');
+  const content = document.getElementById('setupUploadContent');
+  const list    = document.getElementById('setupBrandList');
+  const pills   = document.getElementById('setupBrandPills');
+  const badge   = document.getElementById('step1Badge');
+
+  zone.classList.add('ready');
+  badge.classList.add('done');
+  badge.textContent = '✓';
+
+  content.innerHTML = `
+    <div class="upload-ok">✅ ${brands.length} brand${brands.length!==1?'s':''} loaded</div>
+    <div class="upload-sub" style="margin-top:4px">${base.length} products across all files</div>`;
+
+  pills.innerHTML = brands.map(b => `<span class="brand-pill">✓ ${b}</span>`).join('');
+  list.style.display = 'block';
+}
+
+function checkSetupReady() {
+  const key   = (document.getElementById('setupApiKey').value || '').trim();
+  const ready = pendingExcel !== null && key.length > 20;
+  document.getElementById('setupGoBtn').disabled = !ready;
+  if (key.length > 20) {
+    document.getElementById('step2Badge').classList.add('done');
+    document.getElementById('step2Badge').textContent = '✓';
+  }
+}
+
+function completeSetup() {
+  apiKey  = document.getElementById('setupApiKey').value.trim();
+  appData = pendingExcel;
+  localStorage.setItem('cs_data', JSON.stringify(appData));
+  localStorage.setItem('cs_key',  apiKey);
+  show('mainScreen');
+  refreshDataBar();
+}
+
+// ── SETTINGS MODAL ────────────────────────────────────────────────────────────
+function openSettings() {
+  refreshSettingsBrandList();
+  document.getElementById('settingsModal').classList.add('show');
+}
+
+function refreshSettingsBrandList() {
+  const brands = getBrands(appData);
+  const base   = appData?.['CH Cost'] || [];
+  document.getElementById('settingsDataSub').textContent =
+    `${brands.length} brand${brands.length!==1?'s':''} · ${base.length} products`;
+  document.getElementById('settingsBrandPills').innerHTML =
+    brands.map(b => `<span class="brand-pill">✓ ${b}</span>`).join('');
+}
+
+function closeSettings() {
+  document.getElementById('settingsModal').classList.remove('show');
+}
+
+function modalBgClick(e) {
+  if (e.target === document.getElementById('settingsModal')) closeSettings();
+}
+
+function handleSettingsExcelAdd(e) {
+  if (!e.target.files.length) return;
+  parseMultipleFiles(e.target.files, (err, data) => {
+    if (err) { alert('Error: ' + err.message); return; }
+    appData = mergeData(appData, data);
+    localStorage.setItem('cs_data', JSON.stringify(appData));
+    refreshDataBar();
+    refreshSettingsBrandList();
+  });
+}
+
+function handleSettingsExcelReplace(e) {
+  if (!e.target.files.length) return;
+  if (!confirm('This will remove all current pricing data and replace it with the new file(s). Continue?')) return;
+  parseMultipleFiles(e.target.files, (err, data) => {
+    if (err) { alert('Error: ' + err.message); return; }
+    appData = data;
+    localStorage.setItem('cs_data', JSON.stringify(data));
+    refreshDataBar();
+    refreshSettingsBrandList();
+  });
+}
+
+function updateApiKey() {
+  const newKey = prompt('Paste your new API key:');
+  if (newKey && newKey.trim().length > 20) {
+    apiKey = newKey.trim();
+    localStorage.setItem('cs_key', apiKey);
+    alert('API key updated.');
+  }
+}
+
+function clearAllData() {
+  if (!confirm('Remove all data and return to setup screen?')) return;
+  localStorage.removeItem('cs_data');
+  localStorage.removeItem('cs_key');
+  appData = null; apiKey = ''; pendingExcel = null;
+  closeSettings();
+  show('setupScreen');
+}
+
+// ── PHOTO HANDLING ────────────────────────────────────────────────────────────
+function handlePhoto(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  photoMimeType = file.type || 'image/jpeg';
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const url = ev.target.result;
+    photoBase64 = url.split(',')[1];
+    document.getElementById('previewImg').src     = url;
+    document.getElementById('previewWrap').style.display = 'block';
+    document.getElementById('cameraZone').style.display  = 'none';
+    document.getElementById('scanBtn').classList.add('show');
+    document.getElementById('results').classList.remove('show');
+    document.getElementById('errorBox').classList.remove('show');
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearPhoto() {
+  photoBase64 = null;
+  document.getElementById('previewWrap').style.display = 'none';
+  document.getElementById('cameraZone').style.display  = 'block';
+  document.getElementById('scanBtn').classList.remove('show');
+  document.getElementById('results').classList.remove('show');
+  document.getElementById('errorBox').classList.remove('show');
+  document.getElementById('photoInput').value = '';
+}
+
+// ── PRICING LOOKUP ────────────────────────────────────────────────────────────
+const norm = s => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+function lookupRows(brand, series, sheetKey) {
+  const rows     = appData?.[sheetKey]    || [];
+  const costRows = appData?.['CH Cost']   || [];
+
+  const matched = rows.filter(r => {
+    const bMatch = norm(r.Brand).includes(norm(brand))   || norm(brand).includes(norm(r.Brand));
+    const sMatch = norm(r.Series).includes(norm(series)) || norm(series).includes(norm(r.Series));
+    return bMatch && sMatch;
+  });
+
+  return matched.map(r => {
+    const cost = costRows.find(c =>
+      norm(c.Brand)  === norm(r.Brand)  &&
+      norm(c.Series) === norm(r.Series) &&
+      norm(c.Style)  === norm(r.Style)  &&
+      norm(c.Size)   === norm(r.Size)
+    );
+    return { ...r, cost: cost?.Price ?? null };
+  });
+}
+
+// ── SCAN ──────────────────────────────────────────────────────────────────────
+async function doScan() {
+  if (!photoBase64 || !appData || !apiKey) return;
+
+  const btn = document.getElementById('scanBtn');
+  btn.disabled = true;
+  document.getElementById('scanBtnText').textContent = 'Reading board…';
+  document.getElementById('errorBox').classList.remove('show');
+  document.getElementById('results').classList.remove('show');
+  setStatus('Reading the display board…');
+
+  const markup = document.getElementById('markupSel').value;
+
+  // Build brand → series map for the AI prompt
+  const base = appData['CH Cost'] || [];
+  const byBrand = {};
+  base.forEach(r => {
+    if (!r.Brand || !r.Series) return;
+    if (!byBrand[r.Brand]) byBrand[r.Brand] = new Set();
+    byBrand[r.Brand].add(r.Series);
+  });
+  const productList = Object.entries(byBrand)
+    .map(([b, s]) => `${b}: ${[...s].join(', ')}`)
+    .join('\n');
+
+  // Diagnose environment before attempting the call
+  if (location.protocol === 'file:') {
+    clearStatus();
+    showError('This page is open as a local file (file://). Browsers block internet requests from local files. Upload the file to a web host (e.g. netlify.com/drop) and open it from that URL instead.');
+    btn.disabled = false;
+    document.getElementById('scanBtnText').textContent = 'Look up pricing';
+    return;
+  }
+
+  if (!apiKey || apiKey.length < 20) {
+    clearStatus();
+    showError('No API key saved. Tap ⚙️ Settings → Update key and paste your Claude API key.');
+    btn.disabled = false;
+    document.getElementById('scanBtnText').textContent = 'Look up pricing';
+    return;
+  }
+
+  try {
+    let resp;
+    try {
+      resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-calls': 'true'
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 1024,
+          messages: [{
+            role: 'user',
+            content: [
+              {
+                type: 'image',
+                source: { type: 'base64', media_type: photoMimeType, data: photoBase64 }
+              },
+              {
+                type: 'text',
+                text: `You are a flooring store assistant. Look at this display board photo and identify:
+1. The manufacturer/brand name (look for brand logos or signage on the display rack)
+2. All product series names visible on the individual boards
+
+Our database (Brand: series names):
+${productList}
+
+Return ONLY valid JSON with no markdown or extra text:
+{
+  "results": [
+    { "brand": "ExactBrandName", "series": "ExactSeriesName" }
+  ],
+  "unmatched": ["any product name visible on the board that does not match our database"]
+}
+
+Rules:
+- Match names case-insensitively against the database. Use exact database spelling for matches.
+- If you see a brand logo but the series names match a different brand in our database, use the database brand name.
+- If a visible name is close to a database name (minor spelling difference), include it in results using the database spelling.
+- Put truly unrecognized names in "unmatched".`
+              }
+            ]
+          }]
+        })
+      });
+    } catch(fetchErr) {
+      throw new Error('Network error contacting Anthropic API. (' + fetchErr.message + ') — Check your internet connection or try a different browser.');
+    }
+
+    if (!resp.ok) {
+      const errData = await resp.json().catch(() => ({}));
+      const msg = errData.error?.message || `HTTP ${resp.status}`;
+      if (resp.status === 401) throw new Error('Invalid API key — tap ⚙️ Settings and update it.');
+      if (resp.status === 429) throw new Error('Too many requests — wait a moment and try again.');
+      throw new Error('API error ' + resp.status + ': ' + msg);
+    }
+
+    const data = await resp.json();
+    const text = (data.content || []).map(b => b.text || '').join('');
+
+    let parsed;
+    try {
+      parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
+    } catch {
+      throw new Error('Could not parse the AI response. Please try again.');
+    }
+
+    setStatus('Pulling pricing from spreadsheet…');
+    await new Promise(r => setTimeout(r, 300));
+    clearStatus();
+
+    renderResults(parsed.results || [], parsed.unmatched || [], markup);
+
+  } catch(err) {
+    clearStatus();
+    showError(err.message);
+  } finally {
+    btn.disabled = false;
+    document.getElementById('scanBtnText').textContent = 'Look up pricing';
+  }
+}
+
+// ── RENDER RESULTS ────────────────────────────────────────────────────────────
+function renderResults(results, unmatched, markup) {
+  const body = document.getElementById('resultsBody');
+  const hdr  = document.getElementById('resultsHdr');
+
+  // Group by brand, resolve rows
+  const byBrand = {};
+  results.forEach(({ brand, series }) => {
+    if (!byBrand[brand]) byBrand[brand] = [];
+    byBrand[brand].push({ series, rows: lookupRows(brand, series, markup) });
+  });
+
+  const brandCount = Object.keys(byBrand).length;
+  const hitCount   = results.filter(r => lookupRows(r.brand, r.series, markup).length > 0).length;
+  hdr.textContent  = `Found ${hitCount} series across ${brandCount} brand${brandCount !== 1 ? 's' : ''}`;
+
+  let html = '';
+
+  Object.entries(byBrand).forEach(([brand, items]) => {
+    html += `<div class="brand-divider"><span class="brand-chip">Manufacturer</span>${brand}</div>`;
+
+    items.forEach(({ series, rows }) => {
+      if (rows.length === 0) {
+        html += `<div class="not-found-card">
+          <div class="not-found-title">⚠️ "${series}" not in spreadsheet</div>
+          <div class="not-found-sub">Identified as ${brand} — check spelling or add it to the Excel file.</div>
+        </div>`;
+        return;
+      }
+
+      rows.forEach(r => {
+        const tier = getTier(r.Price);
+        html += `
+          <div class="series-card">
+            <div class="card-head">
+              <div>
+                <div class="card-series">${r.Series}</div>
+                ${r.Style ? `<div class="card-style">${r.Style}</div>` : ''}
+              </div>
+              <div class="tier-badge" style="background:${tier.color}1A;border-color:${tier.color};color:${tier.textColor === '#fff' ? tier.color : tier.textColor}">
+                <span class="tier-dot" style="background:${tier.color}"></span>
+                ${tier.label}
+              </div>
+            </div>
+            ${r.Color ? `<div class="card-colors">${r.Color}</div>` : ''}
+            <div class="price-grid">
+              <div class="price-cell">
+                <div class="pc-label">Our cost</div>
+                <div class="pc-value">${r.cost !== null ? '$' + r.cost.toFixed(2) : '—'}</div>
+                <div class="pc-sub">per sq ft</div>
+              </div>
+              <div class="price-cell hi">
+                <div class="pc-label">${markup} retail</div>
+                <div class="pc-value">$${r.Price.toFixed(2)}</div>
+                <div class="pc-sub">per sq ft</div>
+              </div>
+              <div class="price-cell">
+                <div class="pc-label">Sticker range</div>
+                <div class="pc-value" style="font-size:13px;padding-top:3px">${tier.range}</div>
+                <div class="pc-sub">${tier.label} sticker</div>
+              </div>
+            </div>
+            ${r.Size ? `<div class="size-row">📐 Size: ${r.Size}</div>` : ''}
+          </div>`;
+      });
+    });
+  });
+
+  if (unmatched.length > 0) {
+    html += `<div class="brand-divider" style="margin-top:${brandCount > 0 ? '1.25rem' : '0'}">
+      <span class="brand-chip" style="background:var(--warn-bg);border-color:var(--warn-border);color:var(--warn-text)">Not recognized</span>
+    </div>`;
+    unmatched.forEach(name => {
+      html += `<div class="not-found-card">
+        <div class="not-found-title">⚠️ "${name}" not found</div>
+        <div class="not-found-sub">Check spelling or add this product to the spreadsheet.</div>
+      </div>`;
+    });
+  }
+
+  if (!html) {
+    html = `<div class="not-found-card">
+      <div class="not-found-title">No products identified</div>
+      <div class="not-found-sub">Try retaking the photo with better lighting and product names clearly visible.</div>
+    </div>`;
+  }
+
+  body.innerHTML = html;
+  document.getElementById('results').classList.add('show');
+}
+
+// ── UI HELPERS ────────────────────────────────────────────────────────────────
+function setStatus(msg) {
+  document.getElementById('statusText').textContent = msg;
+  document.getElementById('statusBar').classList.add('show');
+}
+function clearStatus() {
+  document.getElementById('statusBar').classList.remove('show');
+}
+function showError(msg) {
+  const el = document.getElementById('errorBox');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+// ── BOOT ──────────────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
